@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "ewelink-api"
+version = "0.1.0"
+description = ""
+authors = ["ReyJust <jusmayer@outlook.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.32.2"
+pandas = "^2.2.2"
+pydantic-settings = "^2.2.1"
+email-validator = "^2.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
