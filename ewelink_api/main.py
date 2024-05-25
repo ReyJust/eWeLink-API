@@ -1,22 +1,23 @@
-from auth import Auth
-
+# 3rd Party Imports
 import requests
 import json
-
 from typing import Literal, Optional
-from ewelink_api.custom_types.region import Region
-from ewelink_api.utils.get_epoch import get_epoch
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Local Imports
+from logging_config import logger
+from auth import Auth
+from ewelink_api.custom_types.region import Region
+from ewelink_api.utils import get_epoch, instantiate_devices
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+    ENV: str = "dev"
     APP_ID: str
     APP_SECRET: str
 
-
-from logging_config import logger
 
 class EWeLinkAPI:
     def __init__(self, email: str, password: str, region: Optional[str]) -> None:
@@ -25,6 +26,7 @@ class EWeLinkAPI:
 
         self.app_id: str = settings.APP_ID
         self.app_secret: str = settings.APP_SECRET
+        self.env: str = settings.ENV
 
         self.Auth = Auth(
             email=email,
@@ -86,17 +88,29 @@ class EWeLinkAPI:
             raise Exception(f"[ERROR] {err}")
 
     def get_devices(self) -> dict:
-        params: dict = {
-            "lang": "en",
-            "appid": self.app_id,
-            "ts": get_epoch(),
-            "version": 8,
-            "getTags": 1,
+        if self.env == "prod":
+            params: dict = {
+                "lang": "en",
+                "appid": self.app_id,
+                "ts": get_epoch(),
+                "version": 8,
+                "getTags": 1,
+            }
+
+            devices = self.api_request("GET", "user/device", params)
+        else:
+            with open("ewelink_api/example_device_list.json", "r") as f:
+                devices = json.load(f)
+
+        devices_data = devices["devicelist"]
+        [device_data.pop("__v") for device_data in devices_data]
+
+        devices_objects = instantiate_devices(devices_data)
+
+        return {
+            "count": len(devices_objects),
+            "devices": devices_objects,
         }
-
-        devices = self.api_request("GET", "user/device", params)
-
-        return devices
 
     # def get_device(self, id: int) -> dict:
 
@@ -130,3 +144,9 @@ class EWeLinkAPI:
     #     return sensor_values
 
 
+if __name__ == "__main__":
+    sdk = EWeLinkAPI(email="", password="", region="eu")
+
+    devices = sdk.get_devices()
+
+    print(devices)
