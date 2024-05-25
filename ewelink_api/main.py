@@ -16,8 +16,11 @@ class Settings(BaseSettings):
     APP_SECRET: str
 
 
+from logging_config import logger
+
 class EWeLinkAPI:
     def __init__(self, email: str, password: str, region: Optional[str]) -> None:
+        logger.debug("Initializing EWeLinkAPI")
         settings = Settings(_env_file=".env", _env_file_encoding="utf-8")
 
         self.app_id: str = settings.APP_ID
