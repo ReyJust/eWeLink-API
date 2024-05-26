@@ -8,13 +8,18 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from logging_config import logger
 from auth import Auth
 from ewelink_api.custom_types.region import Region
-from ewelink_api.utils import get_epoch, instantiate_devices
+from ewelink_api.utils import (
+    get_epoch,
+    instantiate_devices,
+    instantiate_device,
+    make_nonce,
+)
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file="../.env", env_file_encoding="utf-8")
 
-    ENV: str = "dev"
+    ENV: str
     APP_ID: str
     APP_SECRET: str
 
@@ -28,6 +33,8 @@ class EWeLinkAPI:
         self.app_secret: str = settings.APP_SECRET
         self.env: str = settings.ENV
 
+        self.token = None
+
         self.Auth = Auth(
             email=email,
             password=password,
@@ -35,6 +42,8 @@ class EWeLinkAPI:
             app_id=settings.APP_ID,
             app_secret=settings.APP_SECRET,
         )
+
+        self.base_payload = {}
 
         if region is None:
             region = self.Auth.getRegion()
@@ -59,10 +68,12 @@ class EWeLinkAPI:
     ) -> dict:
 
         url = f"{self.api_url}/{uri}"
-        credentials = self.Auth.login()
+
+        if self.token is None:
+            self.token = self.Auth.login()["at"]
 
         headers: dict = {
-            "Authorization": f'Bearer {credentials["at"]}',
+            "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
         }
 
@@ -72,22 +83,24 @@ class EWeLinkAPI:
             )
 
             res = req.json()
-            if "error" in res:
-                if res["error"] == 406:
-                    print("Refreshing creds...")
+            error = res.get("error", None)
+
+            if error:
+                if error == 406:
+                    logger.debug("refreshing creds...")
                     return self.api_request(method, uri, params, payload)
 
-                if req.status_code != 200:
-                    raise Exception(
-                        f"API CALL FAILED HTTP: {res['error']}, {json.loads(res['msg'])['msg']}"
-                    )
+                raise Exception(
+                    f"API CALL FAILED HTTP: {error}, {json.loads(res['msg'])['msg']}"
+                )
 
             return res
 
         except Exception as err:
-            raise Exception(f"[ERROR] {err}")
+            raise Exception(f"API CALL FAILED HTTP: {err}")
 
     def get_devices(self) -> dict:
+        print(self.env)
         if self.env == "prod":
             params: dict = {
                 "lang": "en",
@@ -112,14 +125,20 @@ class EWeLinkAPI:
             "devices": devices_objects,
         }
 
-    # def get_device(self, id: int) -> dict:
+    def get_device(self, device_id: str) -> dict:
+        nonce = make_nonce()
 
-    #     params: dict = {
-    #         "deviceid": id,
-    #         "appid": self._APP_ID,
-    #         "ts": self.get_ts(),
-    #         "version": 8,
-    #     }
+        params: dict = {
+            "deviceid": device_id,
+            "lang": "en",
+            "nonce": nonce,
+            "appid": self.app_id,
+            "ts": get_epoch(),
+            "version": 8,
+        }
+
+        device = self.api_request("GET", f"user/device/{device_id}", params)
+        device.pop("__v")
 
     #     device = self.call_api("GET", f"user/device/{id}", params)
 
