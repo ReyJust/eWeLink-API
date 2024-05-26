@@ -69,8 +69,6 @@ class Params:
     deviceType: str
     mainSwitch: str
     sensorType: str
-    currentHumidity: str
-    currentTemperature: str
     targets: List[Dict[str, Any]]
     uiActive: int
     only_device: Dict[str, str]
@@ -98,22 +96,23 @@ class Device:
         settings: Settings,
         params: Params,
         createdAt: str,
-        shareUsersInfo: List[Any],
         # __v: int,
         onlineTime: str,
         ip: str,
         location: str,
         offlineTime: str,
         address: str,
-        sharedTo: List[Any],
-        devicekey: str,
         deviceUrl: str,
         brandName: str,
-        showBrand: bool,
-        brandLogoUrl: str,
         productModel: str,
-        devConfig: Dict[str, Any],
         uiid: int,
+        devConfig: Dict[str, Any] = None,
+        sharedTo: List[Any] = None,
+        devicekey: str = None,
+        showBrand: bool = None,
+        brandLogoUrl: str = None,
+        shareUsersInfo: List[Any] = None,
+        shareUsers: List[Any] = None,
         tags: Dict[str, str] = {},
         extraNotify: dict = {},
     ):
@@ -254,15 +253,3 @@ class Device:
             "ip": self.get_ip(),
         }
         return device_info
-
-
-
-
-
-
-
-
-
-
-
-
