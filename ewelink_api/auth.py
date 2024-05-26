@@ -1,8 +1,6 @@
 from ewelink_api.custom_types.region import Region
 
 from datetime import datetime
-import random
-import string
 import requests
 import base64
 import hmac
@@ -10,6 +8,9 @@ import hashlib
 import json
 from typing import Final
 from email_validator import validate_email
+from logging_config import logger
+
+from ewelink_api.utils import make_nonce
 
 # TODO: Caching of the credentials
 
@@ -25,8 +26,6 @@ class Auth:
         self.region: Region = region
 
         self.api_url: str = f"https://{self.region}-api.coolkit.cc:8080/api"
-
-        self.token = None
 
     @property
     def email(self) -> str:
@@ -57,9 +56,7 @@ class Auth:
             "password": self.password,
             "ts": int(datetime.timestamp(datetime.now())),
             "version": 8,
-            "nonce": "".join(
-                random.choices(string.ascii_lowercase + string.digits, k=7)
-            ),
+            "nonce": make_nonce(),
         }
         sign: Final = f"Sign {self.make_sign(self.app_secret, json.dumps(body))}"
 
@@ -71,13 +68,17 @@ class Auth:
 
         res: dict = req.json()
 
-        # TODO: Use an expiring time instead of try and error request.
-        print("AUTH res:", res)
-        print(f"{self.api_url}/user/login")
+        error = res.get("error", None)
 
-        self.token = res["at"]
+        if error == 401:
+            logger.error("Invalid email or password")
+            raise ValueError("Invalid email or password")
 
         return {"at": res["at"], "apikey": res["user"]["apikey"]}
+
+    def auth(self, token):
+        if token is None:
+            self.login()
 
     def make_sign(self, key: str, message: str) -> str:
         return (
